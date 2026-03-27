@@ -1,0 +1,1385 @@
+x`x``x`x`x```<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OS Visualizer — CPU & Memory Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07090f;
+  --s1: #0c1018;
+  --s2: #111520;
+  --s3: #161c2c;
+  --border: #1e2840;
+  --border2: #253050;
+  --text: #dde8ff;
+  --muted: #5a6d90;
+  --muted2: #3a4860;
+  --cyan: #00d4ff;
+  --green: #00ff9d;
+  --amber: #f5a623;
+  --red: #ff3d6e;
+  --purple: #a78bfa;
+  --blue: #60a5fa;
+
+  --p1:#60a5fa; --p2:#f5a623; --p3:#00ff9d; --p4:#ff3d6e;
+  --p5:#a78bfa; --p6:#fb7185; --p7:#34d399; --p8:#fbbf24;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Syne', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── SCROLLBARS ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--s1); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── HEADER ── */
+header {
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  position: sticky; top: 0; z-index: 50;
+}
+.logo-area { display: flex; align-items: center; gap: 14px; padding: 16px 0; }
+.logo-badge {
+  font-family: 'JetBrains Mono', monospace;
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  color: var(--bg);
+  font-size: 11px; font-weight: 700;
+  padding: 4px 8px; border-radius: 6px;
+  letter-spacing: 1px;
+}
+.logo-area h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+.logo-area p { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+nav.tabs { display: flex; gap: 4px; padding: 10px 0; }
+.tab-btn {
+  font-family: 'Syne', sans-serif;
+  font-size: 12px; font-weight: 500;
+  padding: 7px 16px; border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent; color: var(--muted);
+  cursor: pointer; transition: all .2s;
+  letter-spacing: 0.3px;
+}
+.tab-btn:hover { color: var(--text); background: var(--s2); }
+.tab-btn.active {
+  background: var(--s3); color: var(--cyan);
+  border-color: var(--border2);
+}
+
+/* ── MAIN ── */
+main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── SPLIT LAYOUT ── */
+.split {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* ── PANELS ── */
+.panel {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.panel-title {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.panel-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 6px var(--cyan);
+}
+.panel-body { padding: 16px 18px; }
+
+/* ── FORM ELEMENTS ── */
+label.field-label {
+  display: block;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+input[type="text"], input[type="number"] {
+  width: 100%;
+  background: var(--s2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  transition: border-color .2s;
+  outline: none;
+}
+input[type="text"]:focus, input[type="number"]:focus {
+  border-color: var(--cyan);
+}
+
+/* ── PROCESS TABLE ── */
+.proc-table-wrap { overflow-x: auto; margin-bottom: 12px; }
+table.proc-table {
+  width: 100%; border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+.proc-table th {
+  color: var(--muted); font-weight: 500;
+  font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase;
+  padding: 6px 8px; text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.proc-table td { padding: 5px 4px; text-align: center; }
+.proc-table input[type="number"] {
+  width: 52px; padding: 5px 6px; font-size: 12px; text-align: center;
+  border-radius: 6px;
+}
+.proc-table .pid-cell {
+  font-weight: 600; padding: 0 4px;
+}
+.del-btn {
+  background: none; border: none; color: var(--muted2);
+  cursor: pointer; font-size: 16px; line-height: 1;
+  padding: 2px 6px; border-radius: 4px;
+  transition: color .2s;
+}
+.del-btn:hover { color: var(--red); }
+.proc-color-dot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; margin-right: 5px; vertical-align: middle;
+}
+
+/* ── ALGO SELECTOR ── */
+.algo-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px; margin-bottom: 12px;
+}
+.algo-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; font-weight: 500;
+  padding: 8px 6px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--s2); color: var(--muted);
+  cursor: pointer; transition: all .2s;
+  text-align: center; letter-spacing: 0.3px;
+}
+.algo-btn:hover { border-color: var(--border2); color: var(--text); }
+.algo-btn.active {
+  background: var(--s3); color: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.1);
+}
+
+.quantum-wrap {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px; background: var(--s2);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.quantum-wrap label { font-size: 11px; color: var(--muted); white-space: nowrap; font-family: 'JetBrains Mono', monospace; }
+.quantum-wrap input { width: 60px; margin: 0; }
+
+/* ── BUTTONS ── */
+.btn-run {
+  width: 100%; padding: 12px;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase;
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 100%);
+  color: var(--bg); border: none; border-radius: 10px;
+  cursor: pointer; transition: opacity .2s, transform .1s;
+  margin-top: 4px;
+}
+.btn-run:hover { opacity: .9; }
+.btn-run:active { transform: scale(0.98); }
+
+.btn-add {
+  width: 100%; padding: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; font-weight: 500;
+  background: var(--s2); color: var(--muted);
+  border: 1px dashed var(--border2); border-radius: 8px;
+  cursor: pointer; transition: all .2s; margin-bottom: 12px;
+}
+.btn-add:hover { color: var(--cyan); border-color: var(--cyan); background: var(--s3); }
+
+/* ── GANTT CHART ── */
+.gantt-wrap { margin-bottom: 6px; }
+.gantt-bar {
+  display: flex; height: 36px; border-radius: 8px;
+  overflow: hidden; border: 1px solid var(--border);
+}
+.gantt-block {
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; font-weight: 600;
+  color: var(--bg); min-width: 1px;
+  transition: opacity .2s;
+  animation: fadeIn .4s ease both;
+}
+.gantt-block.idle { background: var(--border2) !important; color: var(--muted); }
+
+@keyframes fadeIn { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: scaleX(1); } }
+
+.gantt-times {
+  display: flex; justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--muted);
+  margin-top: 4px; padding: 0 2px;
+  overflow: hidden;
+}
+
+/* ── RESULT TABLE ── */
+.result-wrap { margin: 16px 0; overflow-x: auto; }
+table.result-table {
+  width: 100%; border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+}
+.result-table th {
+  padding: 8px 12px; text-align: center;
+  color: var(--muted); font-weight: 500;
+  font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.result-table td {
+  padding: 8px 12px; text-align: center;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.result-table tr:last-child td { border-bottom: none; }
+.result-table tr:hover td { background: var(--s2); }
+.proc-name-cell { font-weight: 600; text-align: left !important; }
+
+/* ── STAT CARDS ── */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 10px; margin-top: 14px;
+}
+.stat-card {
+  background: var(--s2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px;
+}
+.stat-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 5px;
+}
+.stat-val {
+  font-size: 22px; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--cyan);
+  line-height: 1;
+}
+.stat-unit {
+  font-size: 11px; color: var(--muted); font-weight: 400;
+}
+
+/* ── FRAME TABLE (Memory) ── */
+.frame-outer { overflow-x: auto; margin-bottom: 14px; }
+table.frame-table {
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  min-width: 100%;
+}
+.frame-table th {
+  padding: 6px 10px; text-align: center;
+  color: var(--muted); font-weight: 500;
+  font-size: 10px; border-bottom: 1px solid var(--border);
+}
+.frame-table td {
+  padding: 7px 10px; text-align: center; min-width: 40px;
+  border: 1px solid var(--border);
+  font-weight: 500; transition: background .2s;
+}
+.frame-table td.f-hit {
+  background: rgba(0, 255, 157, 0.15);
+  color: var(--green);
+}
+.frame-table td.f-fault {
+  background: rgba(255, 61, 110, 0.15);
+  color: var(--red);
+}
+.frame-table td.f-empty { color: var(--border2); }
+.frame-table .ref-row td {
+  background: var(--s2); color: var(--muted); font-size: 11px;
+  border-color: var(--border);
+}
+.frame-table .ref-row td.ref-highlight {
+  color: var(--amber); background: rgba(245, 166, 35, 0.1);
+}
+.frame-label {
+  color: var(--muted); font-size: 11px;
+  border-right: 1px solid var(--border2) !important;
+  background: var(--s2) !important;
+}
+
+/* ── MEMORY STATS ── */
+.mem-stats { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.mem-stat-card {
+  flex: 1; min-width: 90px;
+  background: var(--s2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px;
+}
+.mem-stat-card .stat-val { color: var(--purple); }
+.mem-stat-card.green-card .stat-val { color: var(--green); }
+.mem-stat-card.red-card .stat-val { color: var(--red); }
+
+/* ── LEGEND ── */
+.legend {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  font-size: 11px; color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  margin: 10px 0;
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-box {
+  width: 12px; height: 12px; border-radius: 3px;
+}
+.leg-hit { background: rgba(0, 255, 157, 0.3); border: 1px solid var(--green); }
+.leg-fault { background: rgba(255, 61, 110, 0.3); border: 1px solid var(--red); }
+
+/* ── COMPARE TAB ── */
+.compare-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 14px; margin-bottom: 24px;
+}
+.compare-card {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.compare-card-header {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 600; color: var(--cyan);
+}
+.compare-card-body { padding: 12px 16px; }
+.compare-metric {
+  display: flex; justify-content: space-between;
+  align-items: baseline; margin-bottom: 8px;
+  font-size: 12px;
+}
+.compare-metric:last-child { margin-bottom: 0; }
+.cmp-key { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+.cmp-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 14px; color: var(--text); }
+.cmp-val.best { color: var(--green); }
+.cmp-val.worst { color: var(--red); }
+
+.compare-table-wrap { overflow-x: auto; margin-top: 20px; }
+table.compare-table {
+  width: 100%; border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+}
+.compare-table th {
+  padding: 10px 14px; text-align: center;
+  color: var(--muted); font-weight: 500;
+  font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  background: var(--s1);
+}
+.compare-table td {
+  padding: 10px 14px; text-align: center;
+  border-bottom: 1px solid var(--border); color: var(--text);
+}
+.compare-table tr:last-child td { border-bottom: none; }
+.compare-table td.best { color: var(--green); font-weight: 700; }
+.compare-table td.worst { color: var(--red); }
+.algo-name-cell { font-weight: 600; color: var(--cyan) !important; text-align: left !important; }
+
+.compare-gantt-section { margin-top: 20px; }
+.compare-gantt-row { margin-bottom: 12px; }
+.cg-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--muted); margin-bottom: 4px;
+}
+
+/* ── PLACEHOLDER ── */
+.placeholder {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 48px 24px;
+  color: var(--muted2); text-align: center; gap: 10px;
+}
+.placeholder-icon {
+  font-size: 32px; opacity: .4;
+  font-family: 'JetBrains Mono', monospace;
+}
+.placeholder p { font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+
+/* ── BADGE ── */
+.badge {
+  display: inline-block; padding: 2px 8px;
+  border-radius: 20px; font-size: 10px;
+  font-family: 'JetBrains Mono', monospace; font-weight: 500;
+}
+.badge-green { background: rgba(0,255,157,.15); color: var(--green); border: 1px solid rgba(0,255,157,.3); }
+.badge-red { background: rgba(255,61,110,.15); color: var(--red); border: 1px solid rgba(255,61,110,.3); }
+.badge-cyan { background: rgba(0,212,255,.15); color: var(--cyan); border: 1px solid rgba(0,212,255,.3); }
+
+/* ── SEPARATOR ── */
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-label::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+/* ── INFO BOX ── */
+.info-box {
+  background: var(--s2); border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+  border-radius: 0 8px 8px 0; padding: 10px 14px;
+  margin-bottom: 14px;
+}
+.info-box p { font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', monospace; line-height: 1.6; }
+
+/* ── FORMULA ── */
+.formula-box {
+  background: var(--s2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; margin-top: 12px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--muted); line-height: 2;
+}
+.formula-box span { color: var(--amber); font-weight: 600; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .split { grid-template-columns: 1fr; }
+  .compare-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  main { padding: 12px; }
+  header { padding: 0 14px; }
+  .compare-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-area">
+    <span class="logo-badge">OS·VIS</span>
+    <div>
+      <h1>OS Visualizer Dashboard</h1>
+      <p>cpu_scheduling &amp; memory_management simulator</p>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('scheduler')">CPU Scheduler</button>
+    <button class="tab-btn" onclick="switchTab('memory')">Memory Manager</button>
+    <button class="tab-btn" onclick="switchTab('compare')">Algorithm Compare</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ═══════════════ CPU SCHEDULER TAB ═══════════════ -->
+<div id="tab-scheduler" class="tab-pane active">
+  <div class="split">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-dot"></span>
+        <span class="panel-title">Process Input</span>
+      </div>
+      <div class="panel-body">
+
+        <div class="proc-table-wrap">
+          <table class="proc-table" id="proc-table">
+            <thead>
+              <tr>
+                <th>PID</th>
+                <th>Arrival</th>
+                <th>Burst</th>
+                <th>Priority</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="proc-tbody"></tbody>
+          </table>
+        </div>
+        <button class="btn-add" onclick="addProcess()">+ Add Process</button>
+
+        <div class="section-label">Algorithm</div>
+        <div class="algo-grid" id="algo-grid">
+          <button class="algo-btn active" onclick="selectAlgo('FCFS', this)">FCFS</button>
+          <button class="algo-btn" onclick="selectAlgo('SJF', this)">SJF</button>
+          <button class="algo-btn" onclick="selectAlgo('RR', this)">Round Robin</button>
+          <button class="algo-btn" onclick="selectAlgo('PRIORITY', this)">Priority</button>
+        </div>
+
+        <div class="quantum-wrap" id="quantum-wrap" style="display:none;">
+          <label>Time Quantum:</label>
+          <input type="number" id="quantum-input" value="2" min="1" max="99" style="width:60px;text-align:center;">
+        </div>
+
+        <div class="info-box" id="algo-info">
+          <p id="algo-desc">Processes execute in order of arrival. Non-preemptive. Simple but may cause long waiting times.</p>
+        </div>
+
+        <button class="btn-run" onclick="runScheduler()">▶ Run Simulation</button>
+
+        <div class="formula-box" style="margin-top:14px;">
+          <div><span>Waiting Time</span> = Start Time − Arrival Time</div>
+          <div><span>Turnaround Time</span> = Finish Time − Arrival Time</div>
+          <div><span>CPU Utilization</span> = Busy Time / Total Time × 100</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber);"></span>
+        <span class="panel-title">Simulation Results</span>
+        <span id="sched-algo-badge" class="badge badge-cyan" style="margin-left:auto;"></span>
+      </div>
+      <div class="panel-body" id="sched-output">
+        <div class="placeholder">
+          <div class="placeholder-icon">[  ]</div>
+          <p>Configure processes and click Run to start simulation</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ MEMORY MANAGER TAB ═══════════════ -->
+<div id="tab-memory" class="tab-pane">
+  <div class="split">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-dot" style="background:var(--purple);box-shadow:0 0 6px var(--purple);"></span>
+        <span class="panel-title">Memory Input</span>
+      </div>
+      <div class="panel-body">
+
+        <div style="margin-bottom:14px;">
+          <label class="field-label">Reference String (space-separated)</label>
+          <input type="text" id="ref-string" value="7 0 1 2 0 3 0 4 2 3 0 3 2" placeholder="e.g. 1 2 3 4 1 2 5 1 2 3 4 5">
+        </div>
+
+        <div style="margin-bottom:14px;display:flex;gap:10px;align-items:flex-end;">
+          <div style="flex:1;">
+            <label class="field-label">Number of Frames</label>
+            <input type="number" id="num-frames" value="3" min="1" max="10" style="width:100%;">
+          </div>
+          <div style="flex:1;">
+            <label class="field-label">Page count</label>
+            <div id="page-count-display" style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;color:var(--purple);padding:8px 0;">13</div>
+          </div>
+        </div>
+
+        <div class="section-label">Algorithm</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;" id="mem-algo-grid">
+          <button class="algo-btn active" onclick="selectMemAlgo('FIFO', this)" style="grid-column:span 2;">FIFO — First In First Out</button>
+          <button class="algo-btn" onclick="selectMemAlgo('LRU', this)" style="grid-column:span 2;">LRU — Least Recently Used</button>
+          <button class="algo-btn" onclick="selectMemAlgo('OPTIMAL', this)" style="grid-column:span 2;">Optimal — Bélády's Algorithm</button>
+        </div>
+
+        <div class="info-box" id="mem-algo-info">
+          <p id="mem-algo-desc">Replaces the page that has been in memory the longest (first to arrive, first to leave). Simple but not always optimal.</p>
+        </div>
+
+        <button class="btn-run" onclick="runMemory()">▶ Run Simulation</button>
+
+        <div class="formula-box" style="margin-top:14px;">
+          <div><span>Page Fault Rate</span> = Faults / Total References × 100</div>
+          <div><span>Hit Rate</span> = Hits / Total References × 100</div>
+          <div><span>Optimal</span> = Minimum possible faults (theoretical)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-dot" style="background:var(--purple);box-shadow:0 0 6px var(--purple);"></span>
+        <span class="panel-title">Frame Simulation</span>
+        <span id="mem-algo-badge" class="badge badge-cyan" style="margin-left:auto;"></span>
+      </div>
+      <div class="panel-body" id="mem-output">
+        <div class="placeholder">
+          <div class="placeholder-icon">[ ][ ][ ]</div>
+          <p>Configure parameters and click Run to simulate page replacement</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ COMPARE TAB ═══════════════ -->
+<div id="tab-compare" class="tab-pane">
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-header">
+      <span class="panel-dot" style="background:var(--green);box-shadow:0 0 6px var(--green);"></span>
+      <span class="panel-title">Algorithm Comparison</span>
+    </div>
+    <div class="panel-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;font-family:'JetBrains Mono',monospace;">
+        Uses the same process set from the CPU Scheduler tab. Edit processes there, then run comparison here.
+      </p>
+      <button class="btn-run" onclick="runComparison()" style="max-width:320px;">▶ Compare All 4 Algorithms</button>
+    </div>
+  </div>
+  <div id="compare-output">
+    <div class="placeholder" style="padding:80px 24px;">
+      <div class="placeholder-icon">FCFS | SJF | RR | PRI</div>
+      <p>Click Compare to run all 4 scheduling algorithms on the same process set</p>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ──────────────────────────────────────────────
+//  STATE
+// ──────────────────────────────────────────────
+let processes = [
+  {pid:'P1', arrival:0, burst:5, priority:2},
+  {pid:'P2', arrival:1, burst:3, priority:1},
+  {pid:'P3', arrival:2, burst:8, priority:3},
+  {pid:'P4', arrival:3, burst:2, priority:2},
+];
+let nextPid = 5;
+let selectedAlgo = 'FCFS';
+let selectedMemAlgo = 'FIFO';
+
+const PROC_COLORS = ['#60a5fa','#f5a623','#00ff9d','#ff3d6e','#a78bfa','#fb7185','#34d399','#fbbf24'];
+
+const ALGO_DESCS = {
+  FCFS: 'Processes execute in order of arrival. Non-preemptive. Simple but may cause the convoy effect.',
+  SJF:  'Process with shortest burst time runs next. Non-preemptive. Minimizes average waiting time but may starve long processes.',
+  RR:   'Each process gets a fixed time quantum in circular order. Preemptive. Fair but high context-switch overhead.',
+  PRIORITY: 'Process with highest priority (lowest number) runs next. Non-preemptive. May cause starvation of low-priority processes.',
+};
+
+const MEM_DESCS = {
+  FIFO:    'Replaces the page that has been in memory the longest (first to arrive, first to leave). Simple but not always optimal.',
+  LRU:     'Replaces the page that was least recently used. Good approximation of Optimal. Used in real OS implementations.',
+  OPTIMAL: "Replaces the page that won't be used for the longest time in the future (Bélády's). Theoretical best — requires future knowledge.",
+};
+
+// ──────────────────────────────────────────────
+//  PROCESS TABLE
+// ──────────────────────────────────────────────
+function renderProcessTable() {
+  const tbody = document.getElementById('proc-tbody');
+  tbody.innerHTML = '';
+  processes.forEach((p, i) => {
+    const color = PROC_COLORS[i % PROC_COLORS.length];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="pid-cell">
+        <span class="proc-color-dot" style="background:${color}"></span>${p.pid}
+      </td>
+      <td><input type="number" value="${p.arrival}" min="0" max="999"
+          onchange="processes[${i}].arrival=+this.value"></td>
+      <td><input type="number" value="${p.burst}" min="1" max="999"
+          onchange="processes[${i}].burst=+this.value"></td>
+      <td><input type="number" value="${p.priority}" min="1" max="99"
+          onchange="processes[${i}].priority=+this.value"></td>
+      <td><button class="del-btn" onclick="removeProcess(${i})">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function addProcess() {
+  processes.push({pid:`P${nextPid++}`, arrival:0, burst:4, priority:2});
+  renderProcessTable();
+}
+
+function removeProcess(i) {
+  if (processes.length <= 1) return;
+  processes.splice(i, 1);
+  renderProcessTable();
+}
+
+// ──────────────────────────────────────────────
+//  TAB SWITCHING
+// ──────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ──────────────────────────────────────────────
+//  ALGO SELECTION
+// ──────────────────────────────────────────────
+function selectAlgo(algo, btn) {
+  selectedAlgo = algo;
+  document.querySelectorAll('#algo-grid .algo-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('algo-desc').textContent = ALGO_DESCS[algo];
+  document.getElementById('quantum-wrap').style.display = algo === 'RR' ? 'flex' : 'none';
+}
+
+function selectMemAlgo(algo, btn) {
+  selectedMemAlgo = algo;
+  document.querySelectorAll('#mem-algo-grid .algo-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('mem-algo-desc').textContent = MEM_DESCS[algo];
+}
+
+// ──────────────────────────────────────────────
+//  SCHEDULING ALGORITHMS
+// ──────────────────────────────────────────────
+function runFCFS(procs) {
+  const sorted = [...procs].sort((a,b) => a.arrival - b.arrival);
+  let time = 0;
+  const gantt = [], results = [];
+  for (const p of sorted) {
+    if (time < p.arrival) { gantt.push({pid:'Idle', start:time, end:p.arrival}); time = p.arrival; }
+    const start = time;
+    time += p.burst;
+    gantt.push({pid:p.pid, start, end:time});
+    results.push({...p, start, finish:time, waiting:start - p.arrival, turnaround:time - p.arrival});
+  }
+  return {gantt, results};
+}
+
+function runSJF(procs) {
+  const pool = procs.map(p => ({...p, done:false}));
+  let time = 0, completed = 0;
+  const gantt = [], results = [];
+  while (completed < pool.length) {
+    const avail = pool.filter(p => !p.done && p.arrival <= time);
+    if (!avail.length) {
+      const next = pool.filter(p => !p.done).sort((a,b) => a.arrival-b.arrival)[0];
+      gantt.push({pid:'Idle', start:time, end:next.arrival}); time = next.arrival; continue;
+    }
+    const p = avail.sort((a,b) => a.burst-b.burst || a.arrival-b.arrival)[0];
+    const start = time; time += p.burst; p.done = true;
+    gantt.push({pid:p.pid, start, end:time});
+    results.push({...p, start, finish:time, waiting:start-p.arrival, turnaround:time-p.arrival});
+    completed++;
+  }
+  return {gantt, results};
+}
+
+function runRR(procs, quantum) {
+  const pool = procs.map(p => ({...p, remaining:p.burst})).sort((a,b) => a.arrival-b.arrival);
+  let time = 0, qi = 0;
+  const queue = [], gantt = [], results = [];
+  const remaining = pool.map(p => p.burst);
+  const resMap = {};
+
+  while (qi < pool.length && pool[qi].arrival <= time) queue.push(qi++);
+
+  while (queue.length || qi < pool.length) {
+    if (!queue.length) {
+      gantt.push({pid:'Idle', start:time, end:pool[qi].arrival});
+      time = pool[qi].arrival;
+      while (qi < pool.length && pool[qi].arrival <= time) queue.push(qi++);
+      continue;
+    }
+    const idx = queue.shift();
+    const p = pool[idx];
+    const exec = Math.min(quantum, remaining[idx]);
+    gantt.push({pid:p.pid, start:time, end:time+exec});
+    time += exec; remaining[idx] -= exec;
+    while (qi < pool.length && pool[qi].arrival <= time) queue.push(qi++);
+    if (remaining[idx] > 0) queue.push(idx);
+    else { resMap[p.pid] = {...p, finish:time, turnaround:time-p.arrival, waiting:time-p.arrival-p.burst}; }
+  }
+  const results2 = procs.map(p => resMap[p.pid]).filter(Boolean);
+  return {gantt, results:results2};
+}
+
+function runPriority(procs) {
+  const pool = procs.map(p => ({...p, done:false}));
+  let time = 0, completed = 0;
+  const gantt = [], results = [];
+  while (completed < pool.length) {
+    const avail = pool.filter(p => !p.done && p.arrival <= time);
+    if (!avail.length) {
+      const next = pool.filter(p => !p.done).sort((a,b) => a.arrival-b.arrival)[0];
+      gantt.push({pid:'Idle', start:time, end:next.arrival}); time = next.arrival; continue;
+    }
+    const p = avail.sort((a,b) => a.priority-b.priority || a.arrival-b.arrival)[0];
+    const start = time; time += p.burst; p.done = true;
+    gantt.push({pid:p.pid, start, end:time});
+    results.push({...p, start, finish:time, waiting:start-p.arrival, turnaround:time-p.arrival});
+    completed++;
+  }
+  return {gantt, results};
+}
+
+function getSchedulerResults(algo, procs, quantum) {
+  switch(algo) {
+    case 'FCFS':     return runFCFS(procs);
+    case 'SJF':      return runSJF(procs);
+    case 'RR':       return runRR(procs, quantum);
+    case 'PRIORITY': return runPriority(procs);
+  }
+}
+
+// ──────────────────────────────────────────────
+//  MEMORY ALGORITHMS
+// ──────────────────────────────────────────────
+function runFIFO(refStr, nFrames) {
+  const queue = [], steps = []; let faults = 0;
+  for (const page of refStr) {
+    let fault = false;
+    if (!queue.includes(page)) {
+      fault = true; faults++;
+      if (queue.length >= nFrames) queue.shift();
+      queue.push(page);
+    }
+    steps.push({page, frames:[...queue, ...Array(nFrames-queue.length).fill(null)], fault});
+  }
+  return {steps, faults, hits:refStr.length-faults};
+}
+
+function runLRU(refStr, nFrames) {
+  let current = [], steps = []; let faults = 0;
+  for (const page of refStr) {
+    let fault = false;
+    if (current.includes(page)) {
+      current = current.filter(p => p !== page); current.push(page);
+    } else {
+      fault = true; faults++;
+      if (current.length >= nFrames) current.shift();
+      current.push(page);
+    }
+    steps.push({page, frames:[...current, ...Array(nFrames-current.length).fill(null)], fault});
+  }
+  return {steps, faults, hits:refStr.length-faults};
+}
+
+function runOptimal(refStr, nFrames) {
+  let current = [], steps = []; let faults = 0;
+  for (let i = 0; i < refStr.length; i++) {
+    const page = refStr[i]; let fault = false;
+    if (!current.includes(page)) {
+      fault = true; faults++;
+      if (current.length >= nFrames) {
+        const future = refStr.slice(i+1);
+        let toEvict = current[0], farthest = -1;
+        for (const p of current) {
+          const ni = future.indexOf(p);
+          if (ni === -1) { toEvict = p; break; }
+          if (ni > farthest) { farthest = ni; toEvict = p; }
+        }
+        current = current.filter(p => p !== toEvict);
+      }
+      current.push(page);
+    }
+    steps.push({page, frames:[...current, ...Array(nFrames-current.length).fill(null)], fault});
+  }
+  return {steps, faults, hits:refStr.length-faults};
+}
+
+// ──────────────────────────────────────────────
+//  RENDER: GANTT CHART
+// ──────────────────────────────────────────────
+function renderGantt(gantt, procList, compact) {
+  const total = gantt[gantt.length-1].end - gantt[0].start;
+  const pidColors = {};
+  procList.forEach((p,i) => pidColors[p.pid] = PROC_COLORS[i % PROC_COLORS.length]);
+
+  const bar = document.createElement('div');
+  bar.className = 'gantt-bar';
+
+  // Merge consecutive same-pid blocks for display
+  const merged = [];
+  for (const b of gantt) {
+    if (merged.length && merged[merged.length-1].pid === b.pid)
+      merged[merged.length-1].end = b.end;
+    else merged.push({...b});
+  }
+
+  merged.forEach((b, idx) => {
+    const dur = b.end - b.start;
+    const pct = (dur / total * 100).toFixed(2);
+    const div = document.createElement('div');
+    div.className = 'gantt-block' + (b.pid==='Idle'?' idle':'');
+    div.style.cssText = `flex:${pct};background:${pidColors[b.pid]||'var(--border2)'};animation-delay:${idx*0.06}s`;
+    if (!compact && pct > 5) div.textContent = b.pid;
+    bar.appendChild(div);
+  });
+
+  const times = document.createElement('div');
+  times.className = 'gantt-times';
+  const shown = new Set();
+  merged.forEach(b => {
+    if (!shown.has(b.start)) { shown.add(b.start); }
+  });
+  if (!shown.has(merged[merged.length-1].end)) shown.add(merged[merged.length-1].end);
+
+  const allTimes = [...merged.map(b=>b.start), merged[merged.length-1].end];
+  const uniqueTimes = [...new Set(allTimes)].sort((a,b)=>a-b);
+
+  // Only show a subset if too many
+  let displayTimes = uniqueTimes;
+  if (uniqueTimes.length > 14) {
+    displayTimes = uniqueTimes.filter((_,i) => i === 0 || i === uniqueTimes.length-1 || i % Math.ceil(uniqueTimes.length/10) === 0);
+  }
+
+  const innerBar = document.createElement('div');
+  innerBar.style.cssText = 'position:relative;height:18px;';
+  displayTimes.forEach(t => {
+    const pct = ((t - gantt[0].start) / total * 100).toFixed(2);
+    const span = document.createElement('span');
+    span.style.cssText = `position:absolute;left:${pct}%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);`;
+    span.textContent = t;
+    innerBar.appendChild(span);
+  });
+
+  const wrap = document.createElement('div');
+  wrap.className = 'gantt-wrap';
+  wrap.appendChild(bar);
+  wrap.appendChild(innerBar);
+  return wrap;
+}
+
+// ──────────────────────────────────────────────
+//  RENDER: RESULT TABLE
+// ──────────────────────────────────────────────
+function renderResultTable(results, procList) {
+  const pidColors = {};
+  procList.forEach((p,i) => pidColors[p.pid] = PROC_COLORS[i % PROC_COLORS.length]);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'result-wrap';
+  const table = document.createElement('table');
+  table.className = 'result-table';
+  table.innerHTML = `<thead><tr>
+    <th style="text-align:left">Process</th>
+    <th>Arrival</th><th>Burst</th><th>Priority</th>
+    <th>Start</th><th>Finish</th>
+    <th>Waiting</th><th>Turnaround</th>
+  </tr></thead>`;
+  const tbody = document.createElement('tbody');
+  results.forEach(r => {
+    const color = pidColors[r.pid] || '#888';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="proc-name-cell">
+        <span class="proc-color-dot" style="background:${color}"></span>${r.pid}
+      </td>
+      <td>${r.arrival}</td><td>${r.burst}</td><td>${r.priority}</td>
+      <td>${r.start}</td><td>${r.finish}</td>
+      <td><span class="badge badge-red">${r.waiting}</span></td>
+      <td><span class="badge badge-cyan">${r.turnaround}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+// ──────────────────────────────────────────────
+//  RENDER: STAT CARDS
+// ──────────────────────────────────────────────
+function renderStats(results, gantt) {
+  const n = results.length;
+  const avgWT  = (results.reduce((s,r) => s+r.waiting, 0) / n).toFixed(2);
+  const avgTAT = (results.reduce((s,r) => s+r.turnaround, 0) / n).toFixed(2);
+  const totalTime = gantt[gantt.length-1].end - gantt[0].start;
+  const busyTime = gantt.filter(b => b.pid !== 'Idle').reduce((s,b) => s+(b.end-b.start), 0);
+  const cpuUtil = ((busyTime/totalTime)*100).toFixed(1);
+  const throughput = (n / totalTime).toFixed(3);
+
+  const grid = document.createElement('div');
+  grid.className = 'stats-grid';
+  grid.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Avg Waiting Time</div>
+      <div class="stat-val">${avgWT}<span class="stat-unit"> ms</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Turnaround</div>
+      <div class="stat-val">${avgTAT}<span class="stat-unit"> ms</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">CPU Utilization</div>
+      <div class="stat-val">${cpuUtil}<span class="stat-unit">%</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Time Units</div>
+      <div class="stat-val">${totalTime}<span class="stat-unit"> ms</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Throughput</div>
+      <div class="stat-val">${throughput}<span class="stat-unit"> p/ms</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Processes</div>
+      <div class="stat-val">${n}<span class="stat-unit"> jobs</span></div>
+    </div>
+  `;
+  return grid;
+}
+
+// ──────────────────────────────────────────────
+//  RUN SCHEDULER
+// ──────────────────────────────────────────────
+function runScheduler() {
+  const q = parseInt(document.getElementById('quantum-input').value) || 2;
+  const {gantt, results} = getSchedulerResults(selectedAlgo, processes, q);
+  const algoNames = {FCFS:'FCFS',SJF:'SJF',RR:`Round Robin (q=${q})`,PRIORITY:'Priority'};
+
+  document.getElementById('sched-algo-badge').textContent = algoNames[selectedAlgo];
+
+  const out = document.getElementById('sched-output');
+  out.innerHTML = '';
+
+  const lbl1 = document.createElement('div');
+  lbl1.className = 'section-label'; lbl1.innerHTML = 'Gantt Chart';
+  out.appendChild(lbl1);
+  out.appendChild(renderGantt(gantt, processes, false));
+
+  const lbl2 = document.createElement('div');
+  lbl2.className = 'section-label'; lbl2.style.marginTop = '20px'; lbl2.textContent = 'Process Details';
+  out.appendChild(lbl2);
+  out.appendChild(renderResultTable(results, processes));
+
+  const lbl3 = document.createElement('div');
+  lbl3.className = 'section-label'; lbl3.textContent = 'Performance Metrics';
+  out.appendChild(lbl3);
+  out.appendChild(renderStats(results, gantt));
+}
+
+// ──────────────────────────────────────────────
+//  RENDER: FRAME TABLE
+// ──────────────────────────────────────────────
+function renderFrameTable(steps, nFrames) {
+  const outer = document.createElement('div');
+  outer.className = 'frame-outer';
+
+  const table = document.createElement('table');
+  table.className = 'frame-table';
+
+  // Header row: Reference string
+  const thead = document.createElement('thead');
+  const refRow = document.createElement('tr');
+  const refLabelTh = document.createElement('th'); refLabelTh.textContent = 'Ref →'; thead.appendChild(refRow);
+  refLabelTh.style.cssText = 'text-align:left;color:var(--muted);background:var(--s2);';
+  refRow.appendChild(refLabelTh);
+  steps.forEach((s, i) => {
+    const th = document.createElement('td');
+    th.textContent = s.page;
+    th.className = 'ref-row ' + (s.fault ? 'ref-highlight' : '');
+    refRow.appendChild(th);
+  });
+  thead.appendChild(refRow);
+  table.appendChild(thead);
+
+  // Frame rows
+  const tbody = document.createElement('tbody');
+  for (let f = 0; f < nFrames; f++) {
+    const tr = document.createElement('tr');
+    const labelTd = document.createElement('td');
+    labelTd.textContent = `F${f+1}`;
+    labelTd.className = 'frame-label';
+    tr.appendChild(labelTd);
+
+    steps.forEach((s, col) => {
+      const td = document.createElement('td');
+      const val = s.frames[f];
+      if (val === null) {
+        td.className = 'f-empty'; td.textContent = '—';
+      } else {
+        td.textContent = val;
+        // Determine if this cell is the fault/hit indicator
+        // A fault happens when s.fault and val === s.page and this is the NEW page
+        if (s.fault && val === s.page) {
+          td.className = 'f-fault';
+        } else if (!s.fault && val === s.page) {
+          td.className = 'f-hit';
+        }
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+
+  // Fault/Hit indicator row
+  const faultRow = document.createElement('tr');
+  const faultLabel = document.createElement('td');
+  faultLabel.textContent = 'Result'; faultLabel.className = 'frame-label';
+  faultRow.appendChild(faultLabel);
+  steps.forEach(s => {
+    const td = document.createElement('td');
+    td.innerHTML = s.fault
+      ? '<span class="badge badge-red">FAULT</span>'
+      : '<span class="badge badge-green">HIT</span>';
+    faultRow.appendChild(td);
+  });
+  tbody.appendChild(faultRow);
+
+  table.appendChild(tbody);
+  outer.appendChild(table);
+  return outer;
+}
+
+// ──────────────────────────────────────────────
+//  RUN MEMORY
+// ──────────────────────────────────────────────
+function runMemory() {
+  const refInput = document.getElementById('ref-string').value.trim();
+  const refStr = refInput.split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+  const nFrames = Math.max(1, parseInt(document.getElementById('num-frames').value) || 3);
+
+  document.getElementById('page-count-display').textContent = refStr.length;
+
+  if (!refStr.length) return;
+
+  let result;
+  switch(selectedMemAlgo) {
+    case 'FIFO':    result = runFIFO(refStr, nFrames); break;
+    case 'LRU':     result = runLRU(refStr, nFrames); break;
+    case 'OPTIMAL': result = runOptimal(refStr, nFrames); break;
+  }
+
+  const {steps, faults, hits} = result;
+  const total = refStr.length;
+  const faultRate = ((faults/total)*100).toFixed(1);
+  const hitRate   = ((hits/total)*100).toFixed(1);
+
+  document.getElementById('mem-algo-badge').textContent = selectedMemAlgo;
+
+  const out = document.getElementById('mem-output');
+  out.innerHTML = '';
+
+  const lbl1 = document.createElement('div');
+  lbl1.className = 'section-label'; lbl1.textContent = `Frame State — ${nFrames} frame${nFrames>1?'s':''}`;
+  out.appendChild(lbl1);
+  out.appendChild(renderFrameTable(steps, nFrames));
+
+  const leg = document.createElement('div');
+  leg.className = 'legend';
+  leg.innerHTML = `
+    <div class="legend-item"><div class="legend-box leg-fault"></div>Page Fault (miss)</div>
+    <div class="legend-item"><div class="legend-box leg-hit"></div>Page Hit</div>
+  `;
+  out.appendChild(leg);
+
+  const lbl2 = document.createElement('div');
+  lbl2.className = 'section-label'; lbl2.textContent = 'Performance Summary';
+  out.appendChild(lbl2);
+
+  const statsRow = document.createElement('div');
+  statsRow.className = 'mem-stats';
+  statsRow.innerHTML = `
+    <div class="mem-stat-card red-card">
+      <div class="stat-label">Page Faults</div>
+      <div class="stat-val">${faults}</div>
+    </div>
+    <div class="mem-stat-card green-card">
+      <div class="stat-label">Page Hits</div>
+      <div class="stat-val">${hits}</div>
+    </div>
+    <div class="mem-stat-card">
+      <div class="stat-label">Total References</div>
+      <div class="stat-val">${total}</div>
+    </div>
+    <div class="mem-stat-card red-card">
+      <div class="stat-label">Fault Rate</div>
+      <div class="stat-val">${faultRate}<span class="stat-unit">%</span></div>
+    </div>
+    <div class="mem-stat-card green-card">
+      <div class="stat-label">Hit Rate</div>
+      <div class="stat-val">${hitRate}<span class="stat-unit">%</span></div>
+    </div>
+  `;
+  out.appendChild(statsRow);
+}
+
+// ──────────────────────────────────────────────
+//  RUN COMPARISON
+// ──────────────────────────────────────────────
+function runComparison() {
+  const q = parseInt(document.getElementById('quantum-input').value) || 2;
+
+  const algos = [
+    {key:'FCFS',     label:'FCFS',              fn:() => runFCFS(processes)},
+    {key:'SJF',      label:'SJF',               fn:() => runSJF(processes)},
+    {key:'RR',       label:`Round Robin (q=${q})`, fn:() => runRR(processes,q)},
+    {key:'PRIORITY', label:'Priority',          fn:() => runPriority(processes)},
+  ];
+
+  const data = algos.map(a => {
+    const {gantt, results} = a.fn();
+    const n = results.length;
+    const avgWT  = results.reduce((s,r) => s+r.waiting, 0) / n;
+    const avgTAT = results.reduce((s,r) => s+r.turnaround, 0) / n;
+    const totalTime = gantt[gantt.length-1].end - gantt[0].start;
+    const busyTime = gantt.filter(b => b.pid!=='Idle').reduce((s,b)=>s+(b.end-b.start),0);
+    const cpuUtil = (busyTime/totalTime)*100;
+    return {label:a.label, avgWT, avgTAT, cpuUtil, gantt, results, totalTime};
+  });
+
+  // Find bests
+  const bestWT  = Math.min(...data.map(d=>d.avgWT));
+  const bestTAT = Math.min(...data.map(d=>d.avgTAT));
+  const bestCPU = Math.max(...data.map(d=>d.cpuUtil));
+  const bestTime = Math.min(...data.map(d=>d.totalTime));
+  const worstWT  = Math.max(...data.map(d=>d.avgWT));
+  const worstTAT = Math.max(...data.map(d=>d.avgTAT));
+
+  const out = document.getElementById('compare-output');
+  out.innerHTML = '';
+
+  // CARDS
+  const cardGrid = document.createElement('div');
+  cardGrid.className = 'compare-grid';
+  data.forEach(d => {
+    const isBestWT  = d.avgWT === bestWT;
+    const isBestTAT = d.avgTAT === bestTAT;
+    const isBestCPU = d.cpuUtil === bestCPU;
+    const card = document.createElement('div');
+    card.className = 'compare-card';
+    card.innerHTML = `
+      <div class="compare-card-header">${d.label}</div>
+      <div class="compare-card-body">
+        <div class="compare-metric">
+          <span class="cmp-key">Avg Waiting</span>
+          <span class="cmp-val ${isBestWT?'best':d.avgWT===worstWT?'worst':''}">${d.avgWT.toFixed(2)}<span style="font-size:10px;font-weight:400"> ms</span></span>
+        </div>
+        <div class="compare-metric">
+          <span class="cmp-key">Avg Turnaround</span>
+          <span class="cmp-val ${isBestTAT?'best':d.avgTAT===worstTAT?'worst':''}">${d.avgTAT.toFixed(2)}<span style="font-size:10px;font-weight:400"> ms</span></span>
+        </div>
+        <div class="compare-metric">
+          <span class="cmp-key">CPU Utilization</span>
+          <span class="cmp-val ${isBestCPU?'best':''}">${d.cpuUtil.toFixed(1)}<span style="font-size:10px;font-weight:400">%</span></span>
+        </div>
+        <div class="compare-metric">
+          <span class="cmp-key">Total Time</span>
+          <span class="cmp-val ${d.totalTime===bestTime?'best':''}">${d.totalTime}<span style="font-size:10px;font-weight:400"> ms</span></span>
+        </div>
+      </div>
+    `;
+    cardGrid.appendChild(card);
+  });
+  out.appendChild(cardGrid);
+
+  // COMPARISON TABLE
+  const panel = document.createElement('div');
+  panel.className = 'panel';
+  panel.style.marginBottom = '16px';
+
+  const ph = document.createElement('div'); ph.className = 'panel-header';
+  ph.innerHTML = '<span class="panel-dot" style="background:var(--green);box-shadow:0 0 6px var(--green);"></span><span class="panel-title">Side-by-Side Comparison</span>';
+  panel.appendChild(ph);
+
+  const pb = document.createElement('div'); pb.className = 'panel-body';
+
+  const legend = document.createElement('div');
+  legend.style.cssText = 'display:flex;gap:16px;margin-bottom:14px;font-size:11px;font-family:"JetBrains Mono",monospace;';
+  legend.innerHTML = `
+    <span style="color:var(--green)">■ Best value</span>
+    <span style="color:var(--red)">■ Worst value</span>
+    <span style="color:var(--muted)">■ Other</span>
+  `;
+  pb.appendChild(legend);
+
+  const tableWrap = document.createElement('div');
+  tableWrap.className = 'compare-table-wrap';
+  const table = document.createElement('table');
+  table.className = 'compare-table';
+  table.innerHTML = `<thead><tr>
+    <th style="text-align:left">Algorithm</th>
+    <th>Avg Waiting (ms)</th>
+    <th>Avg Turnaround (ms)</th>
+    <th>CPU Utilization (%)</th>
+    <th>Total Time (ms)</th>
+    <th>Throughput (p/ms)</th>
+  </tr></thead>`;
+
+  const tbody2 = document.createElement('tbody');
+  data.forEach(d => {
+    const tr = document.createElement('tr');
+    const throughput = (processes.length / d.totalTime).toFixed(3);
+    tr.innerHTML = `
+      <td class="algo-name-cell">${d.label}</td>
+      <td class="${d.avgWT===bestWT?'best':d.avgWT===worstWT?'worst':''}">${d.avgWT.toFixed(2)}</td>
+      <td class="${d.avgTAT===bestTAT?'best':d.avgTAT===worstTAT?'worst':''}">${d.avgTAT.toFixed(2)}</td>
+      <td class="${d.cpuUtil===bestCPU?'best':''}">${d.cpuUtil.toFixed(1)}</td>
+      <td class="${d.totalTime===bestTime?'best':''}">${d.totalTime}</td>
+      <td>${throughput}</td>
+    `;
+    tbody2.appendChild(tr);
+  });
+  table.appendChild(tbody2);
+  tableWrap.appendChild(table);
+  pb.appendChild(tableWrap);
+  panel.appendChild(pb);
+  out.appendChild(panel);
+
+  // GANTT COMPARISON
+  const ganttPanel = document.createElement('div');
+  ganttPanel.className = 'panel';
+  const gph = document.createElement('div'); gph.className = 'panel-header';
+  gph.innerHTML = '<span class="panel-dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber);"></span><span class="panel-title">Gantt Chart Comparison</span>';
+  ganttPanel.appendChild(gph);
+  const gpb = document.createElement('div'); gpb.className = 'panel-body';
+
+  data.forEach(d => {
+    const row = document.createElement('div');
+    row.className = 'compare-gantt-row';
+    const lbl = document.createElement('div'); lbl.className = 'cg-label'; lbl.textContent = d.label;
+    row.appendChild(lbl);
+    row.appendChild(renderGantt(d.gantt, processes, true));
+    gpb.appendChild(row);
+  });
+
+  ganttPanel.appendChild(gpb);
+  out.appendChild(ganttPanel);
+}
+
+// ──────────────────────────────────────────────
+//  INIT
+// ──────────────────────────────────────────────
+document.getElementById('ref-string').addEventListener('input', function() {
+  const parts = this.value.trim().split(/[\s,]+/).filter(p => p !== '' && !isNaN(p));
+  document.getElementById('page-count-display').textContent = parts.length || 0;
+});
+
+renderProcessTable();
+runScheduler();  // auto-run on load
+runMemory();     // auto-run on load
+</script>
+</body>
+</html>
